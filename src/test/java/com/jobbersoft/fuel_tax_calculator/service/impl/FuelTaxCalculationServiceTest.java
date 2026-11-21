@@ -153,4 +153,68 @@ class FuelTaxCalculationServiceTest {
 
         assertTrue(history.isEmpty());
     }
+
+    @Test
+    void calculateTax_shouldRoundResultToFourDecimalPlaces() {
+
+        TaxCalculationRequest request = new TaxCalculationRequest(
+                "SHIP-1003",
+                "CA",
+                new BigDecimal("10"),
+                new BigDecimal("3.333")
+        );
+
+        TaxJurisdiction jurisdiction = TaxJurisdiction.builder()
+                .id(1L)
+                .code("CA")
+                .name("California")
+                .baseRate(new BigDecimal("0.0750"))
+                .effectiveDate(LocalDate.of(2025, 1, 1))
+                .build();
+
+        when(jurisdictionRepository.findActiveByCode(
+                eq("CA"), any(LocalDate.class)))
+                .thenReturn(Optional.of(jurisdiction));
+
+        when(calculationRepository.save(any(FuelTaxCalculation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaxCalculationResponse response = service.calculateTax(request);
+
+        assertEquals(
+                new BigDecimal("2.4998"),
+                response.calculatedTax()
+        );
+    }
+
+    @Test
+    void calculateTax_shouldSaveCalculationExactlyOnce() {
+
+        TaxCalculationRequest request = new TaxCalculationRequest(
+                "SHIP-1004",
+                "CA",
+                new BigDecimal("100"),
+                new BigDecimal("3.50")
+        );
+
+        TaxJurisdiction jurisdiction = TaxJurisdiction.builder()
+                .id(1L)
+                .code("CA")
+                .name("California")
+                .baseRate(new BigDecimal("0.0750"))
+                .effectiveDate(LocalDate.of(2025, 1, 1))
+                .build();
+
+        when(jurisdictionRepository.findActiveByCode(
+                eq("CA"), any(LocalDate.class)))
+                .thenReturn(Optional.of(jurisdiction));
+
+        when(calculationRepository.save(any(FuelTaxCalculation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.calculateTax(request);
+
+        verify(calculationRepository, times(1))
+                .save(any(FuelTaxCalculation.class));
+    }
 }
